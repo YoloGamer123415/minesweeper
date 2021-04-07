@@ -15,6 +15,8 @@ Game::Game(GameMode difficulty)
 {
 	this->difficulty = difficulty;
 
+	srand( time(NULL) );
+
 	initscr();
 	start_color();
 	use_default_colors();
