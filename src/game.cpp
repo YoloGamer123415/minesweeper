@@ -94,6 +94,18 @@ void Game::run()
 			{
 				this->moveCursor(1, 0); // right (+1 on x-axis)
 			} break;
+
+			// flag current cell
+			case 'f':
+			{
+				this->flagCell();
+			} break;
+
+			// reveal a cell
+			case ' ':
+			{
+				this->revealCell();
+			} break;
 		}
 	}
 }
@@ -261,5 +273,44 @@ void Game::flagCell()
 
 		this->updateCell(this->selectedCellX, this->selectedCellY);
 		wrefresh(this->window);
+	}
+}
+
+void Game::revealCell()
+{
+	this->revealCell(this->selectedCellX, this->selectedCellY);
+}
+
+void Game::revealCell(short int cellX, short int cellY)
+{
+	GameCell *cell = &this->field[cellY][cellX];
+
+	if (!cell->isFlagged && !cell->isRevealed)
+	{
+		cell->isRevealed = true;
+
+		this->updateCell(cellX, cellY);
+		wrefresh(this->window);
+
+		if (cell->bombsAround == 0)
+		{
+			for (short int yOffset = -1; yOffset <= 1; ++yOffset)
+			{
+				for (short int xOffset = -1; xOffset <= 1; ++xOffset)
+				{
+					const short int newX = cellX + xOffset;
+					const short int newY = cellY + yOffset;
+
+					if (
+						!(xOffset == 0 && yOffset == 0)
+						&& newX >= 0 && newX < this->difficulty.size
+						&& newY >= 0 && newY < this->difficulty.size
+					)
+					{
+						this->revealCell(newX, newY);
+					}
+				}
+			}
+		}
 	}
 }
