@@ -18,9 +18,8 @@ struct GameCell
 
 	bool isBomb;
 	bool isFlagged;
-	bool isOpened;
+	bool isRevealed;
 	unsigned short int bombsAround;
-	WINDOW *win;
 };
 
 class Game
@@ -35,6 +34,7 @@ class Game
 		GameMode difficulty;
 		int maxWidth, maxHeight;
 		int selectedCellX, selectedCellY;
+		WINDOW *window;
 
 		std::vector< std::vector<GameCell> > field;
 
@@ -43,6 +43,12 @@ class Game
 
 		void updateCell(short int cellX, short int cellY);
 		void updateField();
+
+		void moveCursor(short int dx, short int dy);
+
+		void flagCell();
+		void revealCell();
+		void revealCell(short int cellX, short int cellY);
 };
 
 #endif /* GAME_H */

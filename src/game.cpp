@@ -5,8 +5,10 @@
 #include <set>
 #include <ncurses.h>
 
-#define GAME_COLOR_BOMB 1
-#define GAME_COLOR_CURSOR 2
+#define GAME_COLOR_BG 1
+#define GAME_COLOR_BG_DIMMED 2
+#define GAME_COLOR_BOMB 3
+#define GAME_COLOR_CURSOR 4
 
 // constructor
 Game::Game(GameMode difficulty)
@@ -20,29 +22,34 @@ Game::Game(GameMode difficulty)
 	cbreak();
 	noecho();
 
+	init_pair(GAME_COLOR_BG, -1, -1);
+	init_pair(GAME_COLOR_BG_DIMMED, -1, COLOR_BLACK);
 	init_pair(GAME_COLOR_BOMB, COLOR_RED, -1);
 	init_pair(GAME_COLOR_CURSOR, COLOR_BLACK, COLOR_WHITE);
 
 	getmaxyx(stdscr, this->maxHeight, this->maxWidth);
 
+	short int windowWidth = this->difficulty.size * GameCell::WIDTH;
+	short int windowHeight = this->difficulty.size * GameCell::HEIGHT;
+	short int xOffset = (this->maxWidth - windowWidth) / 2;
+	short int yOffset = (this->maxHeight - windowHeight) / 2;
+
+	this->window = newwin(
+		windowHeight, windowWidth,
+		yOffset, xOffset
+	);
+	wrefresh(this->window);
 
 	// place cursor in the middle of the game
-	// this->selectedCellX = (windowWidth / 2) / GameCell::WIDTH;
-	// this->selectedCellY = (windowHeight / 2) / GameCell::HEIGHT;
-	this->selectedCellX = this->selectedCellY = 0;
+	this->selectedCellX = (windowWidth / 2) / GameCell::WIDTH;
+	this->selectedCellY = (windowHeight / 2) / GameCell::HEIGHT;
 }
 
 // deconstructor
 Game::~Game()
 {
-	for (auto &row : this->field)
-	{
-		for (auto &cell : row)
-		{
-			delwin(cell.win);
-			cell.win = nullptr;
-		}
-	}
+	delwin(this->window);
+	this->window = nullptr;
 
 	endwin();
 }
@@ -53,12 +60,20 @@ void Game::run()
 	bool isRunning = true;
 
 	this->fillField();
+	this->updateField();
 
-	// while (isRunning)
-	// {
-		this->updateField();
-		// char input = getch();
-	// }
+	while (isRunning)
+	{
+		char input = getchar();
+
+		switch (input)
+		{
+			case 'q':
+			{
+				isRunning = false;
+			} break;
+		}
+	}
 }
 
 // private methods
@@ -89,12 +104,6 @@ unsigned short int Game::getBombCountAroundCell(short int cellX, short int cellY
 
 void Game::fillField()
 {
-	// add 2 for the border
-	short int windowWidth = this->difficulty.size * (GameCell::WIDTH + 2);
-	short int windowHeight = this->difficulty.size * (GameCell::HEIGHT + 2);
-	short int xOffset = (this->maxWidth - windowWidth) / 2.0;
-	short int yOffset = (this->maxHeight - windowHeight) / 2.0;
-
 	// fill the field with empty cells
 	for (short int y = 0; y < this->difficulty.size; ++y)
 	{
@@ -103,15 +112,6 @@ void Game::fillField()
 		for (short int x = 0; x < this->difficulty.size; ++x)
 		{
 			GameCell cell;
-
-			cell.win = newwin(
-				GameCell::HEIGHT + 2, GameCell::WIDTH + 2,
-				yOffset + (GameCell::HEIGHT + 2) * y,
-				xOffset + (GameCell::WIDTH + 2) * x
-			);
-			box(cell.win, 0, 0);
-			wrefresh(cell.win);
-
 			row.push_back(cell);
 		}
 
@@ -146,30 +146,53 @@ void Game::fillField()
 
 void Game::updateCell(short int cellX, short int cellY)
 {
-	const GameCell cell = this->field[cellY][cellX];
-	const unsigned short int bombCount = cell.bombsAround;
+	const GameCell *cell = &this->field[cellY][cellX];
+	const unsigned short int bombCount = cell->bombsAround;
 	const bool isSelected = cellX == this->selectedCellX
 		&& cellY == this->selectedCellY;
 
+	const short int halfCellWidth = GameCell::WIDTH / 2;
+	const short int halfCellHeight = GameCell::HEIGHT / 2;
+	const short int cellStartX = cellX * GameCell::WIDTH + halfCellWidth;
+	const short int cellStartY = cellY * GameCell::HEIGHT + halfCellHeight;
+
+	const int color = (cellY * this->difficulty.size + cellX) % 2 == 1
+		? GAME_COLOR_BG
+		: GAME_COLOR_BG_DIMMED;
+	char cellChar = ' ';
+
+	if (cell->isFlagged) cellChar = '#';
 	// add '0' to bombCount, to go from number to character
-	const char cellChar = cell.isBomb ? 'b' : bombCount + '0';
+	else if (cell->isRevealed) cellChar = bombCount == 0 ? '-' : bombCount + '0';
 
-	if (isSelected)
-		wattron( cell.win, COLOR_PAIR(GAME_COLOR_CURSOR) );
+	if (isSelected) wattron( this->window, COLOR_PAIR(GAME_COLOR_CURSOR) );
+	else wattron( this->window, COLOR_PAIR(color) );
 
-	if (cell.isBomb)
-		wattron( cell.win, A_BOLD | COLOR_PAIR(GAME_COLOR_BOMB) );
+	for (short int yOffset = -halfCellHeight; yOffset <= halfCellHeight; ++yOffset)
+	{
+		for (short int xOffset = -halfCellWidth; xOffset <= halfCellWidth; ++xOffset)
+		{
+			if (xOffset == 0 && yOffset == 0)
+			{
+				mvwaddch(
+					this->window,
+					cellStartY + yOffset, cellStartX + xOffset,
+					cellChar
+				);
+			}
+			else
+			{
+				mvwaddch(
+					this->window,
+					cellStartY + yOffset, cellStartX + xOffset,
+					' '
+				);
+			}
+		}
+	}
 
-	mvwaddch(
-		cell.win,
-		GameCell::WIDTH / 2, GameCell::HEIGHT / 2,
-		cellChar
-	);
-
-	wattroff( cell.win, COLOR_PAIR(GAME_COLOR_CURSOR) );
-	wattroff( cell.win, A_BOLD | COLOR_PAIR(GAME_COLOR_BOMB) );
-
-	wrefresh(cell.win);
+	wattroff( this->window, COLOR_PAIR(GAME_COLOR_CURSOR) );
+	wattroff( this->window, COLOR_PAIR(color) );
 }
 
 void Game::updateField()
@@ -180,5 +203,41 @@ void Game::updateField()
 		{
 			this->updateCell(x, y);
 		}
+	}
+
+	wrefresh(this->window);
+}
+
+void Game::moveCursor(short int dx, short int dy)
+{
+	const short int oldX = this->selectedCellX;
+	const short int oldY = this->selectedCellY;
+	const short int newX = oldX + dx;
+	const short int newY = oldY + dy;
+
+	if (
+		newX >= 0 && newX < this->difficulty.size
+		&& newY >= 0 && newY < this->difficulty.size
+	)
+	{
+		this->selectedCellX = newX;
+		this->selectedCellY = newY;
+
+		this->updateCell(oldX, oldY);
+		this->updateCell(newX, newY);
+		wrefresh(this->window);
+	}
+}
+
+void Game::flagCell()
+{
+	GameCell *cell = &this->field[this->selectedCellY][this->selectedCellX];
+
+	if (!cell->isRevealed)
+	{
+		cell->isFlagged = !cell->isFlagged;
+
+		this->updateCell(this->selectedCellX, this->selectedCellY);
+		wrefresh(this->window);
 	}
 }
