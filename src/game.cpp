@@ -72,6 +72,28 @@ void Game::run()
 			{
 				isRunning = false;
 			} break;
+
+			// cursor movement
+			case 'w':
+			case 'k':
+			{
+				this->moveCursor(0, -1); // up (-1 on y-axis)
+			} break;
+			case 'a':
+			case 'h':
+			{
+				this->moveCursor(-1, 0); // left (-1 on x-axis)
+			} break;
+			case 's':
+			case 'j':
+			{
+				this->moveCursor(0, 1); // down (+1 on y-axis)
+			} break;
+			case 'd':
+			case 'l':
+			{
+				this->moveCursor(1, 0); // right (+1 on x-axis)
+			} break;
 		}
 	}
 }
