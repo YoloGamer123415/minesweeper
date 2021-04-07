@@ -198,6 +198,7 @@ void Game::updateCell(short int cellX, short int cellY)
 	char cellChar = ' ';
 
 	if (cell->isFlagged) cellChar = '#';
+	else if (cell->isRevealed && cell->isBomb) cellChar = '%';
 	// add '0' to bombCount, to go from number to character
 	else if (cell->isRevealed) cellChar = bombCount == 0 ? '-' : bombCount + '0';
 
