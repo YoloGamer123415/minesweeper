@@ -34,9 +34,12 @@ class Game
 		GameMode difficulty;
 		int maxWidth, maxHeight;
 		int selectedCellX, selectedCellY;
-		WINDOW *window;
+		WINDOW *window, *infoWin;
 
 		std::vector< std::vector<GameCell*> > field;
+		unsigned short int flaggedCount;
+
+		void drawFlaggedCount();
 
 		unsigned short int getBombCountAroundCell(short int cellX, short int cellY);
 		void fillField();
