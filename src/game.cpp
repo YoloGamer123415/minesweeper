@@ -7,13 +7,14 @@
 
 #define GAME_COLOR_BG 1
 #define GAME_COLOR_BG_DIMMED 2
-#define GAME_COLOR_BOMB 3
+#define GAME_COLOR_FLAGGED 3
 #define GAME_COLOR_CURSOR 4
 
 // constructor
 Game::Game(GameMode difficulty)
 {
 	this->difficulty = difficulty;
+	this->flaggedCount = 0;
 
 	srand( time(NULL) );
 
@@ -26,7 +27,7 @@ Game::Game(GameMode difficulty)
 
 	init_pair(GAME_COLOR_BG, -1, -1);
 	init_pair(GAME_COLOR_BG_DIMMED, -1, COLOR_BLACK);
-	init_pair(GAME_COLOR_BOMB, COLOR_RED, -1);
+	init_pair(GAME_COLOR_FLAGGED, COLOR_GREEN, -1);
 	init_pair(GAME_COLOR_CURSOR, COLOR_BLACK, COLOR_WHITE);
 
 	getmaxyx(stdscr, this->maxHeight, this->maxWidth);
@@ -50,6 +51,15 @@ Game::Game(GameMode difficulty)
 // deconstructor
 Game::~Game()
 {
+	for (unsigned int y = 0; y < this->field.size(); ++y)
+	{
+		for (unsigned int x = 0; x < this->field[y].size(); ++x)
+		{
+			delete this->field[y][x];
+			this->field[y][x] = nullptr;
+		}
+	}
+
 	delwin(this->window);
 	this->window = nullptr;
 
@@ -127,7 +137,7 @@ unsigned short int Game::getBombCountAroundCell(short int cellX, short int cellY
 			if (
 					fieldX >= 0 && fieldX < this->difficulty.size
 					&& fieldY >= 0 && fieldY < this->difficulty.size
-					&& this->field[fieldY][fieldX].isBomb
+					&& this->field[fieldY][fieldX]->isBomb
 			)
 			{
 				++count;
@@ -140,20 +150,6 @@ unsigned short int Game::getBombCountAroundCell(short int cellX, short int cellY
 
 void Game::fillField()
 {
-	// fill the field with empty cells
-	for (short int y = 0; y < this->difficulty.size; ++y)
-	{
-		std::vector<GameCell> row(this->difficulty.size);
-
-		for (short int x = 0; x < this->difficulty.size; ++x)
-		{
-			GameCell cell;
-			row.push_back(cell);
-		}
-
-		this->field.push_back(row);
-	}
-
 	// generate `this->difficulty.size` random bomb positions
 	std::set<short int> positions;
 
@@ -162,12 +158,22 @@ void Game::fillField()
 		positions.insert( rand() % (this->difficulty.size * this->difficulty.size) );
 	}
 
-	for (const auto &position : positions)
+	// fill the playing field
+	for (short int y = 0; y < this->difficulty.size; ++y)
 	{
-		short int y = position / this->difficulty.size;
-		short int x = position % this->difficulty.size;
+		std::vector<GameCell*> row;
 
-		this->field[y][x].isBomb = true;
+		for (short int x = 0; x < this->difficulty.size; ++x)
+		{
+			GameCell *cell = new GameCell;
+			short int position = y * this->difficulty.size + x;
+
+			if ( positions.find(position) != positions.end() ) cell->isBomb = true;
+
+			row.push_back(cell);
+		}
+
+		this->field.push_back(row);
 	}
 
 	// set all the bomb counts
@@ -175,14 +181,14 @@ void Game::fillField()
 	{
 		for (short int x = 0; x < this->difficulty.size; ++x)
 		{
-			this->field[y][x].bombsAround = this->getBombCountAroundCell(x, y);
+			this->field[y][x]->bombsAround = this->getBombCountAroundCell(x, y);
 		}
 	}
 }
 
 void Game::updateCell(short int cellX, short int cellY)
 {
-	const GameCell *cell = &this->field[cellY][cellX];
+	const GameCell *cell = this->field[cellY][cellX];
 	const unsigned short int bombCount = cell->bombsAround;
 	const bool isSelected = cellX == this->selectedCellX
 		&& cellY == this->selectedCellY;
@@ -202,8 +208,16 @@ void Game::updateCell(short int cellX, short int cellY)
 	// add '0' to bombCount, to go from number to character
 	else if (cell->isRevealed) cellChar = bombCount == 0 ? '-' : bombCount + '0';
 
-	if (isSelected) wattron( this->window, COLOR_PAIR(GAME_COLOR_CURSOR) );
-	else wattron( this->window, COLOR_PAIR(color) );
+	if (isSelected)
+		wattron( this->window, A_REVERSE );
+
+	if (cell->isFlagged)
+	{
+		wattron( this->window, COLOR_PAIR(color) );
+		wattron( this->window, COLOR_PAIR(GAME_COLOR_FLAGGED) );
+	}
+	else
+		wattron( this->window, COLOR_PAIR(color) );
 
 	for (short int yOffset = -halfCellHeight; yOffset <= halfCellHeight; ++yOffset)
 	{
@@ -228,7 +242,8 @@ void Game::updateCell(short int cellX, short int cellY)
 		}
 	}
 
-	wattroff( this->window, COLOR_PAIR(GAME_COLOR_CURSOR) );
+	wattroff(this->window, A_REVERSE);
+	wattroff( this->window, COLOR_PAIR(GAME_COLOR_FLAGGED) );
 	wattroff( this->window, COLOR_PAIR(color) );
 }
 
@@ -268,7 +283,7 @@ void Game::moveCursor(short int dx, short int dy)
 
 void Game::flagCell()
 {
-	GameCell *cell = &this->field[this->selectedCellY][this->selectedCellX];
+	GameCell *cell = this->field[this->selectedCellY][this->selectedCellX];
 
 	if (!cell->isRevealed)
 	{
@@ -286,7 +301,7 @@ void Game::revealCell()
 
 void Game::revealCell(short int cellX, short int cellY)
 {
-	GameCell *cell = &this->field[cellY][cellX];
+	GameCell *cell = this->field[cellY][cellX];
 
 	if (!cell->isFlagged && !cell->isRevealed)
 	{

@@ -36,7 +36,7 @@ class Game
 		int selectedCellX, selectedCellY;
 		WINDOW *window;
 
-		std::vector< std::vector<GameCell> > field;
+		std::vector< std::vector<GameCell*> > field;
 
 		unsigned short int getBombCountAroundCell(short int cellX, short int cellY);
 		void fillField();
