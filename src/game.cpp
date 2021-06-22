@@ -76,23 +76,15 @@ Game::~Game()
 // public methods
 void Game::run()
 {
-	bool isRunning = true;
+	int input;
 
 	this->fillField();
 	this->updateField();
-	this->drawFlaggedCount();
 
-	while (isRunning)
+	while ( ( input = getchar() ) != 'q' )
 	{
-		char input = getchar();
-
 		switch (input)
 		{
-			case 'q':
-			{
-				isRunning = false;
-			} break;
-
 			// cursor movement
 			case 'w':
 			case 'k':
@@ -131,30 +123,6 @@ void Game::run()
 }
 
 // private methods
-void Game::drawFlaggedCount()
-{
-	std::string startText = "Flagged: ";
-	std::string flaggedCount = std::to_string(this->flaggedCount);
-	std::string endText = "/" + std::to_string(this->difficulty.size);
-
-	wclear(this->infoWin);
-	mvwaddstr( this->infoWin, 0, 0, startText.c_str() );
-
-	if (this->flaggedCount == this->difficulty.size)
-		wattron( this->infoWin, COLOR_PAIR(GAME_COLOR_GOOD) );
-	else
-		wattron( this->infoWin, COLOR_PAIR(GAME_COLOR_BAD) );
-
-	mvwaddstr( this->infoWin, 0, startText.size(), flaggedCount.c_str() );
-
-	wattroff( this->infoWin, COLOR_PAIR(GAME_COLOR_GOOD) );
-	wattroff( this->infoWin, COLOR_PAIR(GAME_COLOR_BAD) );
-
-	mvwaddstr( this->infoWin, 0, startText.size() + flaggedCount.size(), endText.c_str() );
-
-	wrefresh(this->infoWin);
-}
-
 unsigned short int Game::getBombCountAroundCell(short int cellX, short int cellY)
 {
 	unsigned short int count = 0;
@@ -332,7 +300,6 @@ void Game::flagCell()
 
 		this->updateCell(this->selectedCellX, this->selectedCellY);
 		wrefresh(this->window);
-		this->drawFlaggedCount();
 	}
 }
 
