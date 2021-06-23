@@ -32,12 +32,20 @@ class Game
 
 	private:
 		GameMode difficulty;
+		unsigned short revealedCount;
+		const unsigned short toReveal;
 		int maxWidth, maxHeight;
 		int selectedCellX, selectedCellY;
 		WINDOW *window, *infoWin;
+		bool playing;
 
 		std::vector< std::vector<GameCell*> > field;
-		unsigned short int flaggedCount;
+
+		void gameWon();
+		void gameOver();
+
+		void clearInfo();
+		void showInfo(const char* message, int color = 0);
 
 		unsigned short int getBombCountAroundCell(short int cellX, short int cellY);
 		void fillField();

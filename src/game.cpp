@@ -1,5 +1,6 @@
 #include "game.h"
 
+#include <cstring>
 #include <iostream>
 #include <algorithm>
 #include <set>
@@ -14,10 +15,11 @@
 
 // constructor
 Game::Game(GameMode difficulty)
+	: difficulty(difficulty)
+	, revealedCount(0)
+	, toReveal(difficulty.size * difficulty.size - difficulty.size)
+	, playing(false)
 {
-	this->difficulty = difficulty;
-	this->flaggedCount = 0;
-
 	srand( time(NULL) );
 
 	initscr();
@@ -47,7 +49,7 @@ Game::Game(GameMode difficulty)
 	);
 	wrefresh(this->window);
 
-	this->infoWin = newwin(1, this->maxWidth - 2, this->maxHeight - 2, 2);
+	this->infoWin = newwin(1, windowWidth, yOffset - 2, xOffset);
 	wrefresh(this->infoWin);
 
 	// place cursor in the middle of the game
@@ -67,6 +69,9 @@ Game::~Game()
 		}
 	}
 
+	delwin(this->infoWin);
+	this->infoWin = nullptr;
+
 	delwin(this->window);
 	this->window = nullptr;
 
@@ -80,49 +85,87 @@ void Game::run()
 
 	this->fillField();
 	this->updateField();
+	this->playing = true;
 
 	while ( ( input = getchar() ) != 'q' )
 	{
-		switch (input)
+		if (this->playing)
 		{
-			// cursor movement
-			case 'w':
-			case 'k':
+			switch (input)
 			{
-				this->moveCursor(0, -1); // up (-1 on y-axis)
-			} break;
-			case 'a':
-			case 'h':
-			{
-				this->moveCursor(-1, 0); // left (-1 on x-axis)
-			} break;
-			case 's':
-			case 'j':
-			{
-				this->moveCursor(0, 1); // down (+1 on y-axis)
-			} break;
-			case 'd':
-			case 'l':
-			{
-				this->moveCursor(1, 0); // right (+1 on x-axis)
-			} break;
+				// cursor movement
+				case 'w':
+				case 'k':
+				{
+					this->moveCursor(0, -1); // up (-1 on y-axis)
+				} break;
+				case 'a':
+				case 'h':
+				{
+					this->moveCursor(-1, 0); // left (-1 on x-axis)
+				} break;
+				case 's':
+				case 'j':
+				{
+					this->moveCursor(0, 1); // down (+1 on y-axis)
+				} break;
+				case 'd':
+				case 'l':
+				{
+					this->moveCursor(1, 0); // right (+1 on x-axis)
+				} break;
 
-			// flag current cell
-			case 'f':
-			{
-				this->flagCell();
-			} break;
+					// flag current cell
+				case 'f':
+				{
+					this->flagCell();
+				} break;
 
-			// reveal a cell
-			case ' ':
-			{
-				this->revealCell();
-			} break;
+					// reveal a cell
+				case ' ':
+				{
+					this->revealCell();
+				} break;
+			}
+		}
+		else if (input == 'r')
+		{
+			// TODO: Restart game
 		}
 	}
 }
 
 // private methods
+void Game::gameWon()
+{
+	this->playing = false;
+	this->showInfo("You have won!", GAME_COLOR_GOOD);
+}
+
+void Game::gameOver()
+{
+	this->playing = false;
+	this->showInfo("You have lost", GAME_COLOR_BAD);
+}
+
+void Game::clearInfo()
+{
+	wclrtoeol(this->infoWin);
+}
+
+void Game::showInfo(const char* message, int color)
+{
+	this->clearInfo();
+
+	unsigned short windowWidth = this->difficulty.size * GameCell::WIDTH;
+	unsigned short messageWidth = std::strlen(message);
+	unsigned short xOffset = (windowWidth - messageWidth) / 2;
+
+	wattron( this->infoWin, COLOR_PAIR(color) );
+	mvwaddstr(this->infoWin, 0, xOffset, message);
+	wrefresh(this->infoWin);
+}
+
 unsigned short int Game::getBombCountAroundCell(short int cellX, short int cellY)
 {
 	unsigned short int count = 0;
@@ -287,16 +330,7 @@ void Game::flagCell()
 
 	if (!cell->isRevealed)
 	{
-		if (cell->isFlagged)
-		{
-			cell->isFlagged = false;
-			--this->flaggedCount;
-		}
-		else
-		{
-			cell->isFlagged = true;
-			++this->flaggedCount;
-		}
+		cell->isFlagged = !cell->isFlagged;
 
 		this->updateCell(this->selectedCellX, this->selectedCellY);
 		wrefresh(this->window);
@@ -315,26 +349,38 @@ void Game::revealCell(short int cellX, short int cellY)
 	if (!cell->isFlagged && !cell->isRevealed)
 	{
 		cell->isRevealed = true;
+		++this->revealedCount;
 
 		this->updateCell(cellX, cellY);
 		wrefresh(this->window);
 
-		if (cell->bombsAround == 0)
+		if (cell->isBomb)
 		{
-			for (short int yOffset = -1; yOffset <= 1; ++yOffset)
+			this->gameOver();
+		}
+		else if ( this->revealedCount >= this->toReveal )
+		{
+			this->gameWon();
+		}
+		else
+		{
+			if (cell->bombsAround == 0)
 			{
-				for (short int xOffset = -1; xOffset <= 1; ++xOffset)
+				for (short int yOffset = -1; yOffset <= 1; ++yOffset)
 				{
-					const short int newX = cellX + xOffset;
-					const short int newY = cellY + yOffset;
-
-					if (
-						!(xOffset == 0 && yOffset == 0)
-						&& newX >= 0 && newX < this->difficulty.size
-						&& newY >= 0 && newY < this->difficulty.size
-					)
+					for (short int xOffset = -1; xOffset <= 1; ++xOffset)
 					{
-						this->revealCell(newX, newY);
+						const short int newX = cellX + xOffset;
+						const short int newY = cellY + yOffset;
+
+						if (
+								!(xOffset == 0 && yOffset == 0)
+								&& newX >= 0 && newX < this->difficulty.size
+								&& newY >= 0 && newY < this->difficulty.size
+						   )
+						{
+							this->revealCell(newX, newY);
+						}
 					}
 				}
 			}
