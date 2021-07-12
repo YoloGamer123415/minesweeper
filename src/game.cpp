@@ -131,6 +131,10 @@ void Game::run()
 				} break;
 			}
 		}
+		else if (input == 'q')
+		{
+			this->quit = true;
+		}
 		else if (input == 'r')
 		{
 			// TODO: Restart game
