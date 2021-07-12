@@ -1,20 +1,30 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include <map>
 #include <string>
 #include <vector>
 #include <ncurses.h>
 
-struct GameMode
+struct GameSize
 {
+	unsigned short width;
+	unsigned short height;
+	unsigned short bombCount;
 	std::string name;
-	short int size;
 };
 
 struct GameCell
 {
 	static const short int WIDTH = 3;
 	static const short int HEIGHT = 1;
+
+	GameCell()
+		: isBomb(false)
+		, isFlagged(false)
+		, isRevealed(false)
+		, bombsAround(0)
+	{};
 
 	bool isBomb;
 	bool isFlagged;
@@ -25,21 +35,28 @@ struct GameCell
 class Game
 {
 	public:
-		Game(GameMode difficulty);
+		Game();
 		~Game();
+
+		static const std::vector<GameSize> SIZES;
 
 		void run();
 
 	private:
-		GameMode difficulty;
+		const GameSize *size;
+
 		unsigned short revealedCount;
-		const unsigned short toReveal;
+		unsigned short toReveal;
+		bool quit, playing;
+
 		int maxWidth, maxHeight;
+		WINDOW *gameWin, *difficultyWin, *infoWin;
 		int selectedCellX, selectedCellY;
-		WINDOW *window, *infoWin;
-		bool playing;
 
 		std::vector< std::vector<GameCell*> > field;
+
+		void showDifficultySelector();
+		void setup();
 
 		void gameWon();
 		void gameOver();
@@ -48,6 +65,7 @@ class Game
 		void showInfo(const char* message, int color = 0);
 
 		unsigned short int getBombCountAroundCell(short int cellX, short int cellY);
+		void clearField();
 		void fillField();
 
 		void updateCell(short int cellX, short int cellY);
