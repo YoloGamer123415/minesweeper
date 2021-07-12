@@ -213,6 +213,9 @@ void Game::showDifficultySelector()
 	}
 	while( input != ' ' );
 
+	// remove selector window
+	werase(this->difficultyWin);
+	wrefresh(this->difficultyWin);
 	delwin(this->difficultyWin);
 	this->difficultyWin = nullptr;
 
