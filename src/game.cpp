@@ -50,25 +50,7 @@ Game::Game()
 // deconstructor
 Game::~Game()
 {
-	this->clearField();
-
-	if (this->infoWin != NULL)
-	{
-		delwin(this->infoWin);
-		this->infoWin = nullptr;
-	}
-
-	if (this->difficultyWin != NULL)
-	{
-		delwin(this->difficultyWin);
-		this->difficultyWin = nullptr;
-	}
-
-	if (this->gameWin != NULL)
-	{
-		delwin(this->gameWin);
-		this->gameWin = nullptr;
-	}
+	this->clean();
 
 	endwin();
 }
@@ -137,7 +119,9 @@ void Game::run()
 		}
 		else if (input == 'r')
 		{
-			// TODO: Restart game
+			this->showDifficultySelector();
+			this->clean();
+			this->setup();
 		}
 	}
 }
@@ -248,10 +232,37 @@ void Game::setup()
 	this->selectedCellX = (windowWidth / 2) / GameCell::WIDTH;
 	this->selectedCellY = (windowHeight / 2) / GameCell::HEIGHT;
 
+	this->revealedCount = 0;
+	this->toReveal =
+		(this->size->width * this->size->height) - this->size->bombCount;
+
 	this->clearField();
 	this->fillField();
 	this->updateField();
 	this->playing = true;
+}
+
+void Game::clean()
+{
+	this->clearField();
+
+	if (this->infoWin != NULL)
+	{
+		delwin(this->infoWin);
+		this->infoWin = nullptr;
+	}
+
+	if (this->difficultyWin != NULL)
+	{
+		delwin(this->difficultyWin);
+		this->difficultyWin = nullptr;
+	}
+
+	if (this->gameWin != NULL)
+	{
+		delwin(this->gameWin);
+		this->gameWin = nullptr;
+	}
 }
 
 void Game::gameWon()
@@ -318,7 +329,11 @@ void Game::clearField()
 			delete this->field[y][x];
 			this->field[y][x] = nullptr;
 		}
+
+		this->field[y].clear();
 	}
+
+	this->field.clear();
 }
 
 void Game::fillField()

@@ -57,6 +57,7 @@ class Game
 
 		void showDifficultySelector();
 		void setup();
+		void clean();
 
 		void gameWon();
 		void gameOver();
