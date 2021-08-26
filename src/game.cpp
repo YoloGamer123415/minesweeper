@@ -14,9 +14,9 @@
 #define GAME_COLOR_BAD 6
 
 const std::vector<GameSize> Game::SIZES = {
-	{ 9, 9, 10, "easy" },
-	{ 15, 15, 40, "normal" },
-	{ 15, 29, 99, "hard" },
+	{ .width = 9, .height = 9, .bombCount = 10, .name = "easy" },
+	{         15,          15,              40,         "normal" },
+	{         29,          15,              99,         "hard" },
 };
 
 // constructor
@@ -59,10 +59,9 @@ Game::~Game()
 void Game::run()
 {
 	this->showDifficultySelector();
+	this->setup();
 
 	int input;
-
-	this->setup();
 
 	while ( !quit )
 	{
@@ -109,6 +108,14 @@ void Game::run()
 				// reveal a cell
 				case ' ':
 				{
+					if (this->firstMove)
+					{
+						this->firstMove = false;
+						this->fillField(
+								this->selectedCellX, this->selectedCellY);
+						this->updateField();
+					}
+
 					this->revealCell();
 				} break;
 			}
@@ -139,6 +146,7 @@ void Game::showDifficultySelector()
 
 	do
 	{
+		// draw tabs for the difficulties in `Game::SIZES`
 		for (size_t i = 0; i < count; ++i)
 		{
 			size_t msgWidth = Game::SIZES[i].name.size();
@@ -161,6 +169,7 @@ void Game::showDifficultySelector()
 			wattroff( this->difficultyWin, COLOR_PAIR(GAME_COLOR_BG) );
 		}
 
+		// draw quit tab
 		if (selected == count) wattron(this->difficultyWin, A_REVERSE);
 
 		wattron( this->difficultyWin, COLOR_PAIR(GAME_COLOR_BG) );
@@ -214,6 +223,7 @@ void Game::showDifficultySelector()
 
 void Game::setup()
 {
+	// create windows
 	short int windowWidth = this->size->width * GameCell::WIDTH;
 	short int windowHeight = this->size->height * GameCell::HEIGHT;
 	short int xOffset = (this->maxWidth - windowWidth) / 2;
@@ -237,9 +247,9 @@ void Game::setup()
 		(this->size->width * this->size->height) - this->size->bombCount;
 
 	this->clearField();
-	this->fillField();
+	this->createField();
 	this->updateField();
-	this->playing = true;
+	this->playing = this->firstMove = true;
 }
 
 void Game::clean()
@@ -336,17 +346,9 @@ void Game::clearField()
 	this->field.clear();
 }
 
-void Game::fillField()
+void Game::createField()
 {
-	// generate `this->difficulty.size` random bomb positions
-	std::set<short int> positions;
-
-	while ( positions.size() < this->size->bombCount )
-	{
-		positions.insert( rand() % (this->size->width * this->size->height) );
-	}
-
-	// fill the playing field
+	// fill the playing field with `GameCell`s
 	for (short int y = 0; y < this->size->height; ++y)
 	{
 		std::vector<GameCell*> row;
@@ -354,15 +356,41 @@ void Game::fillField()
 		for (short int x = 0; x < this->size->width; ++x)
 		{
 			GameCell *cell = new GameCell;
-			short int position = y * this->size->height + x;
-
-			if ( positions.find(position) != positions.end() )
-				cell->isBomb = true;
 
 			row.push_back(cell);
 		}
 
 		this->field.push_back(row);
+	}
+}
+
+void Game::fillField(short startX, short startY)
+{
+	// generate `this->difficulty.size` random bomb positions
+	// we use a `std::set` so we don't have to check if a position already
+	// exists ourself
+	std::set<short int> positions;
+	const int disallowedPos = startY * this->size->height + startX;
+
+	while ( positions.size() < this->size->bombCount )
+	{
+		int random = rand() % (this->size->width * this->size->height);
+
+		if (random != disallowedPos)
+			positions.insert( (short) random );
+	}
+	//
+	// fill the playing field with `GameCell`s
+	for (short int y = 0; y < this->size->height; ++y)
+	{
+		for (short int x = 0; x < this->size->width; ++x)
+		{
+			GameCell *cell = this->field[y][x];
+			int position = x * this->size->height + y;
+
+			if ( positions.find(position) != positions.end() )
+				cell->isBomb = true;
+		}
 	}
 
 	// set all the bomb counts
